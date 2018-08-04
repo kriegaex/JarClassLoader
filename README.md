@@ -47,7 +47,7 @@ So we have something like this:
 ```xml
 <properties>
   <java.source-target.version>1.8</java.source-target.version>
-  <jar-class-loader.version>1.0-SNAPSHOT</jar-class-loader.version>
+  <jar-class-loader.version>1.0</jar-class-loader.version>
   <one-jar-main-class>de.scrum_master.smime.OneJarLauncher</one-jar-main-class>
 </properties>
 
