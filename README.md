@@ -31,3 +31,97 @@ Why group ID `de.scrum-master` instead of `com.jdotsoft`? Because I do not want 
 and rather publish under a domain name which is really mine. I did keep their package name `com.jdotsoft.jarloader`,
 though, because other users who until now have used the identical class and want to migrate to using the Maven
 dependency do not need to change anything in their source code, the import stays the same.
+
+How to use with Maven
+---------------------
+
+The description [Using Maven to build executable JAR](http://www.jdotsoft.com/JarClassLoader.php#maven) on the original
+web site is valid only if you have the JarClassLoader copied into your project. When using it as an external Maven
+artifact, we additionally need to make sure that
+  - its class files get unpacked and inlined into our own one-jar artifact and
+  - that the JAR itself does not get copied into our own one-jar artifact because it cannot be used from there anyway
+    (hen vs. egg problem).
+
+So we have something like this:
+
+```xml
+<properties>
+  <java.source-target.version>1.8</java.source-target.version>
+  <jar-class-loader.version>1.0-SNAPSHOT</jar-class-loader.version>
+  <one-jar-main-class>de.scrum_master.smime.OneJarLauncher</one-jar-main-class>
+</properties>
+
+<dependencies>
+  <!-- JarClassLoader tool for creating executeable uber JAR -->
+  <dependency>
+    <groupId>de.scrum-master</groupId>
+    <artifactId>jar-class-loader</artifactId>
+    <version>${jar-class-loader.version}</version>
+  </dependency>
+</dependencies>
+
+<plugins>
+
+  <plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-compiler-plugin</artifactId>
+    <version>3.7.0</version>
+    <configuration>
+      <source>${java.source-target.version}</source>
+      <target>${java.source-target.version}</target>
+    </configuration>
+  </plugin>
+
+  <plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-dependency-plugin</artifactId>
+    <version>3.0.2</version>
+    <executions>
+      <execution>
+        <id>copy</id>
+        <phase>prepare-package</phase>
+        <goals>
+          <goal>copy-dependencies</goal>
+        </goals>
+        <configuration>
+          <!-- Exclude JarClassLoader artifact and anything else you do not need -->
+          <excludeArtifactIds>jar-class-loader,junit</excludeArtifactIds>
+          <outputDirectory>${project.build.directory}/classes</outputDirectory>
+        </configuration>
+      </execution>
+      <execution>
+        <id>unpack-jar-class-loader</id>
+        <phase>prepare-package</phase>
+        <goals>
+          <goal>unpack</goal>
+        </goals>
+        <configuration>
+          <outputDirectory>${project.build.directory}/classes</outputDirectory>
+          <!-- Make sure to unpack classes from JarClassLoader artifact -->
+          <artifact>de.scrum-master:jar-class-loader:${jar-class-loader.version}</artifact>
+          <includes>**/*.class</includes>
+        </configuration>
+      </execution>
+    </executions>
+  </plugin>
+
+  <plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-jar-plugin</artifactId>
+    <version>3.0.2</version>
+    <configuration>
+      <archive>
+        <manifest>
+          <mainClass>${one-jar-main-class}</mainClass>
+          <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+        </manifest>
+      </archive>
+    </configuration>
+  </plugin>
+
+</plugins>
+```
+
+The difference to the original are just
+  * the additional `jar-class-loader` in `<excludeArtifactIds>` and
+  * the additional execution `<id>unpack-jar-class-loader</id>`.
